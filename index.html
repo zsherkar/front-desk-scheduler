@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Front Desk Scheduler — International Student House, Washington DC</title>
+  <!-- CSP tuned for GitHub Pages: allow inline JS/CSS on same origin, block everything else dangerous -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+  <style>
+    :root{
+      --ink:#111827;          /* gray-900 */
+      --muted:#6b7280;        /* gray-500 */
+      --rule:#e5e7eb;         /* gray-200 */
+      --bg:#ffffff;           /* white */
+      --accent:#2563eb;       /* blue-600 */
+      --accent-weak:#dbeafe;  /* blue-100 */
+      --success:#059669;      /* green-600 */
+      --success-weak:#d1fae5; /* green-100 */
+      --danger:#ef4444;       /* red-500 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";line-height:1.45;display:grid;place-items:start center}
+    .wrap{width:min(1100px,96vw);padding:28px 20px 48px}
+
+    /* Header */
+    .masthead{margin-bottom:18px;text-align:center}
+    .title{margin:0;font-weight:700;font-size:clamp(26px,3.8vw,36px);letter-spacing:.2px}
+    .subtitle{margin:6px 0 0;color:var(--muted);font-weight:600}
+    hr{border:0;border-top:1px solid var(--rule);margin:18px 0 22px}
+
+    /* Layout */
+    .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+    .card{background:#fff;border:1px solid var(--rule);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.04);padding:18px}
+    .section-title{font-weight:700;margin:4px 0 12px}
+
+    /* Calendar */
+    .cal{user-select:none}
+    .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .cal-nav{display:flex;gap:6px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--ink);background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+    .btn:hover{background:#f9fafb}
+    .btn-outline{border-color:#c7cdd4;color:#111827}
+    .btn-primary{border-color:var(--accent);color:#fff;background:var(--accent)}
+    .btn-primary:hover{filter:brightness(.98)}
+    .btn-danger{border-color:var(--danger);color:var(--danger);background:#fff}
+    .btn-danger:hover{background:#fff5f5}
+    .btn-icon{width:40px;height:40px;padding:0;border-color:#c7cdd4}
+
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .cal-dow{font-size:12px;color:var(--muted);text-align:center;padding:6px 0}
+    .day{border:1px solid var(--rule);border-radius:10px;padding:8px;text-align:center;cursor:pointer;background:#fff;min-height:56px;display:grid;place-items:center}
+    .day:hover{background:#f9fafb}
+    .day.disabled{opacity:.45;cursor:not-allowed;background:#fafafa}
+    .day.active{outline:2px solid var(--accent);outline-offset:2px}
+    .day.selected{background:var(--success-weak);border-color:var(--success)}
+    .badge{display:inline-block;background:var(--success);color:#fff;border-radius:999px;padding:2px 8px;font-size:11px;margin-top:6px}
+
+    /* Slots */
+    .slots{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .slot-btn{padding:12px 12px;background:#fff;border:1px solid #c7cdd4;border-radius:12px;color:var(--ink);cursor:pointer;text-align:center;font-weight:700}
+    .slot-btn:hover{background:#f3f4f6}
+    .slot-btn[aria-pressed="true"]{background:var(--accent-weak);border-color:var(--accent)}
+
+    /* Actions */
+    .actions{display:flex;gap:10px;align-items:center;justify-content:flex-start;margin-top:12px}
+    .actions .btn{padding:10px 16px}
+    .fine{color:var(--muted);font-size:12px;margin-top:8px}
+
+    /* Selection list */
+    .list{margin:0;padding:0;list-style:none}
+    .list li{margin:0 0 12px 0}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:999px;padding:6px 10px;background:#fff}
+    .pill .x{border:1px solid #c7cdd4;border-radius:999px;background:#fff;padding:2px 8px;cursor:pointer}
+    .pill .x:hover{background:#f3f4f6}
+
+    .empty{color:var(--muted)}
+
+    /* Footer waiver */
+    .footer{margin-top:20px;color:#9ca3af;font-size:10px;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="masthead">
+      <h1 class="title">Front Desk Scheduler</h1>
+      <div class="subtitle">International Student House, Washington DC</div>
+    </div>
+    <hr />
+
+    <!-- CONFIGURATION (edit these constants; instructions via DEFAULT_INSTRUCTIONS) -->
+    <script>
+      const EVENT_TITLE = "Front Desk Shift";
+      const DISPLAY_TZ = "America/New_York"; // IANA zone
+      const DEFAULT_LOCATION = "International Student House, Washington DC";
+      const DEFAULT_INSTRUCTIONS = `Dear Resident,\n\nThank you for your help in managing front desk operations. Here are a few important links and instructions.\n\nUpdated Front Desk Manual:\n\nMaintenance Request response sheet: https://docs.google.com/spreadsheets/d/1ZM6s5PWr_z7CzeA8FWyYLDGGwIZiIW2vh48EY4E1CCw/edit?usp=sharing\n\nLog your shifts: https://forms.gle/QkkCWttAPSoeK9m86\n\nPlease don't hesitate to reach out if you have any questions or concerns. Thank you for all that you do!\n\nWarmly,\nAFP Team\nI-House DC`;
+
+      // Weekday slots (Mon–Fri)
+      const WEEKDAY_SLOTS = [
+        { label: "9:00 am – 11:00 am", start: "09:00", end: "11:00" },
+        { label: "11:00 am – 2:00 pm", start: "11:00", end: "14:00" },
+        { label: "2:00 pm – 5:00 pm",  start: "14:00", end: "17:00" },
+        { label: "5:00 pm – 8:00 pm",  start: "17:00", end: "20:00" },
+      ];
+      // Weekend slots (Sat–Sun)
+      const WEEKEND_SLOTS = [
+        { label: "8:00 am – 12:00 pm", start: "08:00", end: "12:00" },
+        { label: "12:00 pm – 4:00 pm", start: "12:00", end: "16:00" },
+        { label: "4:00 pm – 8:00 pm",  start: "16:00", end: "20:00" },
+      ];
+    </script>
+
+    <div class="grid">
+      <!-- Left: Calendar + Slot Picker -->
+      <div class="card cal">
+        <div class="cal-header">
+          <div>
+            <div class="section-title" id="monthLabel"></div>
+          </div>
+          <div class="cal-nav">
+            <button class="btn btn-icon btn-outline" id="prevMonth" aria-label="Previous month">‹</button>
+            <button class="btn btn-icon btn-outline" id="nextMonth" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="dow"></div>
+        <div class="cal-grid" id="days"></div>
+
+        <div style="margin-top:16px">
+          <div class="section-title">Select shift slot(s) for <span id="activeDateLabel">—</span></div>
+          <div id="slotGrid" class="slots" role="group" aria-label="Shift slots"></div>
+          <div class="actions">
+            <button type="button" class="btn btn-outline" id="addBtn">Add to My Shifts</button>
+            <button type="button" class="btn btn-primary" id="finalizeBtn" disabled>Finalize & Download .ics</button>
+            <button type="button" class="btn btn-outline" id="clearBtn">Clear All</button>
+          </div>
+          <div class="fine">You can add multiple dates. Dates with at least one selected slot will be highlighted on the calendar.</div>
+        </div>
+      </div>
+
+      <!-- Right: Selected Shifts -->
+      <div class="card">
+        <div class="section-title">My Selected Shifts</div>
+        <ul id="selList" class="list"></ul>
+        <div id="emptyState" class="empty">No shifts added yet. Choose a date on the calendar, select one or more slots, then click <em>Add to My Shifts</em>.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      © <span id="year"></span> International Student House — Front Desk Scheduler. All rights reserved.™ Use of this tool is optional and provided “as is.” By using it you agree that ISH/DC and maintainers are not liable for any issues arising from its use.
+    </div>
+  </div>
+
+  <script>
+    const pad = (n) => String(n).padStart(2, '0');
+
+    // Elements
+    const monthLabel = document.getElementById('monthLabel');
+    const dowEl = document.getElementById('dow');
+    const daysEl = document.getElementById('days');
+    const slotGrid = document.getElementById('slotGrid');
+    const activeDateLabel = document.getElementById('activeDateLabel');
+    const selList = document.getElementById('selList');
+    const emptyState = document.getElementById('emptyState');
+    const addBtn = document.getElementById('addBtn');
+    const finalizeBtn = document.getElementById('finalizeBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // App state
+    let viewYear, viewMonth; // month being displayed (0-based)
+    let activeDate = null;   // YYYY-MM-DD currently editing
+    // selections: [{date:'YYYY-MM-DD', slotIndices:[...] }]
+    let selections = [];
+
+    // --- Calendar helpers ---
+    function startOfMonth(y,m){ return new Date(y,m,1); }
+    function endOfMonth(y,m){ return new Date(y,m+1,0); }
+    function ymd(date){ const y = date.getFullYear(); const m = pad(date.getMonth()+1); const d = pad(date.getDate()); return `${y}-${m}-${d}`; }
+    function humanDate(dateStr){
+      if (!dateStr) return '—';
+      const d = new Date(dateStr + 'T12:00:00');
+      let s = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      if (!s.includes(',')) { const parts = s.split(' '); if (parts.length > 1) s = parts[0] + ', ' + parts.slice(1).join(' '); }
+      return s;
+    }
+
+    function isWeekend(dateStr){
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T12:00:00');
+      const dow = d.getDay(); // 0 Sun ... 6 Sat
+      return (dow === 0 || dow === 6);
+    }
+
+    function renderDOW(){
+      const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      dowEl.innerHTML = '';
+      names.forEach(n=>{
+        const c = document.createElement('div');
+        c.className = 'cal-dow';
+        c.textContent = n;
+        dowEl.appendChild(c);
+      });
+    }
+
+    function setActiveDate(dateStr){
+      activeDate = dateStr;
+      activeDateLabel.textContent = humanDate(dateStr);
+      renderSlots();
+      renderDays();
+    }
+
+    function renderCalendar(){
+      const now = new Date();
+      viewYear = now.getFullYear();
+      viewMonth = now.getMonth();
+      renderDOW();
+      renderMonth();
+    }
+
+    function renderMonth(){
+      const d0 = startOfMonth(viewYear, viewMonth);
+      const monthName = d0.toLocaleString('en-US', { month: 'long', year:'numeric' });
+      monthLabel.textContent = monthName;
+      renderDays();
+    }
+
+    function renderDays(){
+      daysEl.innerHTML = '';
+      const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+      const lastDate = endOfMonth(viewYear, viewMonth).getDate();
+
+      for (let i=0;i<firstDow;i++){
+        const x = document.createElement('div');
+        x.className = 'day disabled';
+        x.style.visibility = 'hidden';
+        daysEl.appendChild(x);
+      }
+
+      for (let day=1; day<=lastDate; day++){
+        const d = new Date(viewYear, viewMonth, day);
+        const label = day;
+        const dStr = ymd(d);
+        const cell = document.createElement('div');
+        cell.className = 'day';
+        cell.innerHTML = `<div>${label}</div>`;
+
+        if (activeDate === dStr) cell.classList.add('active');
+        const found = selections.find(s=>s.date===dStr);
+        if (found && found.slotIndices.length>0){
+          cell.classList.add('selected');
+          const b = document.createElement('div');
+          b.className = 'badge';
+          b.textContent = `${found.slotIndices.length} slot${found.slotIndices.length>1?'s':''}`;
+          cell.appendChild(b);
+        }
+
+        cell.addEventListener('click', ()=>{ setActiveDate(dStr); });
+        daysEl.appendChild(cell);
+      }
+    }
+
+    document.getElementById('prevMonth').addEventListener('click', ()=>{ viewMonth--; if (viewMonth<0){ viewMonth=11; viewYear--; } renderMonth(); });
+    document.getElementById('nextMonth').addEventListener('click', ()=>{ viewMonth++; if (viewMonth>11){ viewMonth=0; viewYear++; } renderMonth(); });
+
+    function updateControls(){
+      const has = selections.length > 0;
+      finalizeBtn.disabled = !has;
+      clearBtn.classList.toggle('btn-danger', has);
+    }
+
+    function renderSlots(){
+      slotGrid.innerHTML='';
+      if (!activeDate){ slotGrid.innerHTML = '<div class="fine">Select a date on the calendar first.</div>'; return; }
+      const weekend = isWeekend(activeDate);
+      const SLOTS = weekend ? WEEKEND_SLOTS : WEEKDAY_SLOTS;
+
+      const existing = selections.find(s=>s.date===activeDate);
+      const preSelected = new Set((existing?.slotIndices||[]).map(String));
+
+      SLOTS.forEach((s,i)=>{
+        const btn = document.createElement('button');
+        btn.type='button';
+        btn.className='slot-btn';
+        btn.textContent = s.label;
+        const initiallyPressed = preSelected.has(String(i));
+        btn.setAttribute('aria-pressed', initiallyPressed ? 'true':'false');
+        btn.addEventListener('click',()=>{ const pressed = btn.getAttribute('aria-pressed')==='true'; btn.setAttribute('aria-pressed', pressed?'false':'true'); });
+        slotGrid.appendChild(btn);
+      });
+    }
+
+    function stagedIndices(){ return Array.from(slotGrid.querySelectorAll('.slot-btn')).map((b,idx)=> b.getAttribute('aria-pressed')==='true' ? idx : null).filter(v=>v!==null); }
+
+    document.getElementById('addBtn').addEventListener('click', ()=>{
+      if (!activeDate){ alert('Choose a date on the calendar.'); return; }
+      const indices = stagedIndices();
+      if (!indices.length){ alert('Choose at least one slot.'); return; }
+      const existing = selections.find(s=>s.date===activeDate);
+      if (existing){ const set = new Set([ ...existing.slotIndices.map(String), ...indices.map(String) ]); existing.slotIndices = Array.from(set).map(Number).sort((a,b)=>a-b); }
+      else { selections.push({ date: activeDate, slotIndices: indices.sort((a,b)=>a-b) }); }
+      slotGrid.querySelectorAll('.slot-btn').forEach(b=>b.setAttribute('aria-pressed','false'));
+      renderDays(); refreshSelectedList(); updateControls();
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', ()=>{
+      if (!selections.length) { updateControls(); return; }
+      selections.splice(0, selections.length);
+      activeDate = null;
+      emptyState.style.display = 'block';
+      selList.innerHTML = '';
+      renderDays();
+      slotGrid.innerHTML = '<div class="fine">Select a date on the calendar first.</div>';
+      activeDateLabel.textContent = '—';
+      updateControls();
+    });
+
+    function refreshSelectedList(){
+      selList.innerHTML='';
+      if (!selections.length){ emptyState.style.display='block'; return; }
+      emptyState.style.display='none';
+      selections.forEach((sel, idx)=>{
+        const weekend = isWeekend(sel.date);
+        const SLOTS = weekend ? WEEKEND_SLOTS : WEEKDAY_SLOTS;
+        const li = document.createElement('li');
+        const pills = sel.slotIndices.map(i=>{ const label = SLOTS[i]?.label || 'Unknown'; return `<span class=\"pill\">${label} <button class=\"x\" type=\"button\" data-action=\"remove-slot\" data-sel=\"${idx}\" data-slot=\"${i}\">×</button></span>`; }).join(' ');
+        li.innerHTML = `<div style=\"font-weight:700\">${humanDate(sel.date)}</div><div style=\"margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;\">${pills}</div><div style=\"margin-top:8px\"><button type=\"button\" class=\"btn btn-outline\" data-action=\"remove-date\" data-sel=\"${idx}\">Remove date</button></div>`;
+        selList.appendChild(li);
+      });
+
+      selList.querySelectorAll('button[data-action="remove-date"]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const idx = Number(btn.getAttribute('data-sel')); selections.splice(idx,1); refreshSelectedList(); renderDays(); updateControls(); }); });
+      selList.querySelectorAll('button[data-action="remove-slot"]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const idx = Number(btn.getAttribute('data-sel')); const slot = String(btn.getAttribute('data-slot')); const set = new Set(selections[idx].slotIndices.map(String)); set.delete(slot); selections[idx].slotIndices = Array.from(set).map(Number).sort((a,b)=>a-b); if (!selections[idx].slotIndices.length){ selections.splice(idx,1); } refreshSelectedList(); renderDays(); updateControls(); }); });
+    }
+
+    // ===== ICS generation using TZID and embedded VTIMEZONE (for Outlook/Apple/Google correctness) =====
+    function toLocalICS(dateStr, timeStr){
+      const [y,m,d] = dateStr.split('-').map(Number);
+      const [hh,mm] = timeStr.split(':').map(Number);
+      return String(y) + pad(m) + pad(d) + 'T' + pad(hh) + pad(mm) + '00';
+    }
+
+    function icsEscape(s){
+      return String(s)
+        .replace(/\\/g,'\\\\')
+        .replace(/\r/g,'')
+        .replace(/\n/g,'\\n')
+        .replace(/,/g,'\\,')
+        .replace(/;/g,'\\;');
+    }
+    function makeUID(){ return `${Date.now()}-${Math.random().toString(36).slice(2)}@frontdesk.local`; }
+    function foldLine(s){ const out=[]; while(s.length>73){out.push(s.slice(0,73)); s=' '+s.slice(73);} out.push(s); return out.join('\r\n'); }
+
+    function makeEvent({uid, dtStamp, date, slot, description, location}){
+      const dtStartLocal = toLocalICS(date, slot.start);
+      const dtEndLocal   = toLocalICS(date, slot.end);
+      const DESCRIPTION = foldLine('DESCRIPTION:' + icsEscape(description));
+      const LOCATION = location ? foldLine('LOCATION:' + icsEscape(location)) : '';
+      return [
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${dtStamp}`,
+        `DTSTART;TZID=${DISPLAY_TZ}:${dtStartLocal}`,
+        `DTEND;TZID=${DISPLAY_TZ}:${dtEndLocal}`,
+        `SUMMARY:${EVENT_TITLE}`,
+        DESCRIPTION,
+        LOCATION,
+        'BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM',
+        'BEGIN:VALARM','TRIGGER;RELATED=END:PT0M','ACTION:DISPLAY','DESCRIPTION:Front Desk Post-Shift Checklist','END:VALARM',
+        'END:VEVENT'
+      ].join('\r\n');
+    }
+
+    function buildICSFromSelections(list){
+      const now=new Date();
+      const dtStamp = now.getUTCFullYear()+ pad(now.getUTCMonth()+1)+ pad(now.getUTCDate()) +'T'+ pad(now.getUTCHours())+ pad(now.getUTCMinutes())+ pad(now.getUTCSeconds()) +'Z';
+      const events=[];
+      list.forEach(sel=>{
+        const weekend = isWeekend(sel.date);
+        const SLOTS = weekend ? WEEKEND_SLOTS : WEEKDAY_SLOTS;
+        sel.slotIndices.forEach(i=>{
+          const slot=SLOTS[i]; if(!slot) return;
+          const descLines=[DEFAULT_INSTRUCTIONS];
+          events.push(makeEvent({ uid:makeUID(), dtStamp, date:sel.date, slot, description:descLines.join(' | '), location:DEFAULT_LOCATION }));
+        });
+      });
+      const VTIMEZONE = [
+        'BEGIN:VTIMEZONE',
+        `TZID:${DISPLAY_TZ}`,
+        'X-LIC-LOCATION:America/New_York',
+        'BEGIN:DAYLIGHT',
+        'TZOFFSETFROM:-0500',
+        'TZOFFSETTO:-0400',
+        'TZNAME:EDT',
+        'DTSTART:19700308T020000',
+        'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU',
+        'END:DAYLIGHT',
+        'BEGIN:STANDARD',
+        'TZOFFSETFROM:-0400',
+        'TZOFFSETTO:-0500',
+        'TZNAME:EST',
+        'DTSTART:19701101T020000',
+        'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU',
+        'END:STANDARD',
+        'END:VTIMEZONE'
+      ].join('\r\n');
+      return [
+        'BEGIN:VCALENDAR',
+        'PRODID:-//Front Desk Shift//ICS Generator 2.7//EN',
+        'VERSION:2.0',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        VTIMEZONE,
+        ...events,
+        'END:VCALENDAR'
+      ].join('\r\n');
+    }
+
+    document.getElementById('finalizeBtn').addEventListener('click', ()=>{
+      if (!selections.length){ alert('Add at least one date with slot(s).'); return; }
+      const ics = buildICSFromSelections(selections);
+      const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download=`Front_Desk_Shifts_${new Date().toISOString().slice(0,10)}.ics`;
+      document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+    });
+
+    // Initialize
+    (function init(){
+      const now = new Date();
+      viewYear = now.getFullYear();
+      viewMonth = now.getMonth();
+      renderDOW();
+      renderMonth();
+      setActiveDate( ymd(now) );
+      document.getElementById('year').textContent = String(now.getFullYear());
+      updateControls();
+    })();
+  </script>
+</body>
+</html>
