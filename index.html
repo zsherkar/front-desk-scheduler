@@ -351,6 +351,11 @@
     function makeEvent({uid, dtStamp, date, slot, description, location}){
       const dtStartLocal = toLocalICS(date, slot.start);
       const dtEndLocal   = toLocalICS(date, slot.end);
+      // Absolute UTC triggers for reliability across Outlook/Apple/Google
+      const startUTC = toUTCTrigger(date, slot.start);
+      const endUTC   = toUTCTrigger(date, slot.end);
+      const triggerStartMinus15 = minusMinutesUTC(startUTC, 15);
+      const triggerEnd = endUTC;
       const DESCRIPTION = foldLine('DESCRIPTION:' + icsEscape(description));
       const LOCATION = location ? foldLine('LOCATION:' + icsEscape(location)) : '';
       return [
@@ -362,8 +367,8 @@
         `SUMMARY:${EVENT_TITLE}`,
         DESCRIPTION,
         LOCATION,
-        'BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM',
-        'BEGIN:VALARM','TRIGGER;RELATED=END:PT0M','ACTION:DISPLAY','DESCRIPTION:Front Desk Post-Shift Checklist','END:VALARM',
+        `BEGIN:VALARM`,`TRIGGER;VALUE=DATE-TIME:${triggerStartMinus15}`,`ACTION:DISPLAY`,`DESCRIPTION:Reminder`,`END:VALARM`,
+        `BEGIN:VALARM`,`TRIGGER;VALUE=DATE-TIME:${triggerEnd}`,`ACTION:DISPLAY`,`DESCRIPTION:Front Desk Post-Shift Checklist`,`END:VALARM`,
         'END:VEVENT'
       ].join('\r\n');
     }
