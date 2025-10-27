@@ -421,11 +421,41 @@
     document.getElementById('finalizeBtn').addEventListener('click', ()=>{
       if (!selections.length){ alert('Add at least one date with slot(s).'); return; }
       const ics = buildICSFromSelections(selections);
+      const fileName = `Front_Desk_Shifts_${new Date().toISOString().slice(0,10)}.ics`;
+
+      // Robust mobile handling
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) || (/Mac/.test(ua) && 'ontouchend' in document);
+
+      if (isIOS) {
+        // iOS Safari often ignores Blob+download. Use data URL to hand off to Calendar.
+        const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+        const win = window.open(dataUrl, '_blank');
+        if (!win) {
+          // Fallback: synthesize a clickable link
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+        return;
+      }
+
+      // Desktop & Android: Blob with download attribute
       const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href=url; a.download=`Front_Desk_Shifts_${new Date().toISOString().slice(0,10)}.ics`;
-      document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+      a.href = url;
+      a.download = fileName;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 30000);
     });
 
     // Initialize
