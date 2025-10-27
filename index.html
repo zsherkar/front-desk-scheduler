@@ -348,6 +348,76 @@
     function makeUID(){ return `${Date.now()}-${Math.random().toString(36).slice(2)}@frontdesk.local`; }
     function foldLine(s){ const out=[]; while(s.length>73){out.push(s.slice(0,73)); s=' '+s.slice(73);} out.push(s); return out.join('\r\n'); }
 
+        const timeZoneFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: DISPLAY_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+
+    function formatUTCDateForICS(date){
+      return (
+        date.getUTCFullYear() +
+        pad(date.getUTCMonth() + 1) +
+        pad(date.getUTCDate()) +
+        'T' +
+        pad(date.getUTCHours()) +
+        pad(date.getUTCMinutes()) +
+        pad(date.getUTCSeconds()) +
+        'Z'
+      );
+    }
+
+    function parseICSUTCDate(str){
+      const [datePart, timePartWithZone] = str.split('T');
+      const timePart = timePartWithZone.replace('Z', '');
+      const y = Number(datePart.slice(0, 4));
+      const m = Number(datePart.slice(4, 6));
+      const d = Number(datePart.slice(6, 8));
+      const hh = Number(timePart.slice(0, 2));
+      const mm = Number(timePart.slice(2, 4));
+      const ss = Number(timePart.slice(4, 6));
+      return new Date(Date.UTC(y, m - 1, d, hh, mm, ss));
+    }
+
+    function minusMinutesUTC(utcStamp, minutes){
+      const date = parseICSUTCDate(utcStamp);
+      date.setUTCMinutes(date.getUTCMinutes() - minutes);
+      return formatUTCDateForICS(date);
+    }
+
+    function zonedTimeToUTC(dateStr, timeStr){
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const [hh, mm] = timeStr.split(':').map(Number);
+      const naiveUTC = new Date(Date.UTC(y, m - 1, d, hh, mm, 0));
+      const parts = timeZoneFormatter.formatToParts(naiveUTC);
+      const fields = { year: y, month: m, day: d, hour: hh, minute: mm, second: 0 };
+      parts.forEach(({ type, value }) => {
+        if (type !== 'literal') {
+          fields[type] = Number(value);
+        }
+      });
+      const formattedInstant = Date.UTC(
+        fields.year,
+        fields.month - 1,
+        fields.day,
+        fields.hour,
+        fields.minute,
+        fields.second || 0
+      );
+      const offset = formattedInstant - naiveUTC.getTime();
+      return new Date(naiveUTC.getTime() - offset);
+    }
+
+    function toUTCTrigger(dateStr, timeStr){
+      const utcDate = zonedTimeToUTC(dateStr, timeStr);
+      return formatUTCDateForICS(utcDate);
+    }
+
     function makeEvent({uid, dtStamp, date, slot, description, location}){
       const dtStartLocal = toLocalICS(date, slot.start);
       const dtEndLocal   = toLocalICS(date, slot.end);
