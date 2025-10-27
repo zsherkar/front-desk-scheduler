@@ -423,37 +423,48 @@
       const ics = buildICSFromSelections(selections);
       const fileName = `Front_Desk_Shifts_${new Date().toISOString().slice(0,10)}.ics`;
 
-      // Robust mobile handling
+      // --- Robust, cross-platform download/open logic ---
       const ua = navigator.userAgent;
       const isIOS = /iPad|iPhone|iPod/.test(ua) || (/Mac/.test(ua) && 'ontouchend' in document);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
 
+      // iOS: navigate directly to data URL (Calendar handoff)
       if (isIOS) {
-        // Try anchor navigation to data URL (works best on iOS)
         const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        // As a final fallback, force same-tab navigation
-        setTimeout(()=>{ if (document.visibilityState === 'visible') window.location.href = dataUrl; }, 200);
+        // Synchronous navigation (keeps user gesture context)
+        window.location.href = dataUrl;
         return;
       }
 
-      // Desktop & Android: Blob with download attribute
-      const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url), 30000);
+      try {
+        const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
+
+        // Legacy Edge (msSaveOrOpenBlob)
+        if (window.navigator && 'msSaveOrOpenBlob' in window.navigator) {
+          window.navigator.msSaveOrOpenBlob(blob, fileName);
+          return;
+        }
+
+        // Standard: anchor download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // Give the browser time to start the download before revoking
+        setTimeout(()=> URL.revokeObjectURL(url), 3000);
+      } catch (e) {
+        // Fallbacks if Blob or download attr fail
+        const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+        if (!isSafari) {
+          const win = window.open(dataUrl, '_blank');
+          if (win) return;
+        }
+        // Last resort: same-tab navigation
+        window.location.href = dataUrl;
+      }
     });
 
     // Initialize
